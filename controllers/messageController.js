@@ -1,5 +1,19 @@
 const Message = require('../models/Message');
 
+// Convert UTC date to Sri Lanka time string (Asia/Colombo)
+const toSriLankaTime = (date) => {
+  return date.toLocaleString('en-GB', {
+    timeZone: 'Asia/Colombo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+};
+
 // Parse "DD-MM-YYYY" and "h:mmAM/PM" into a Date object
 const parseDateTime = (dateStr, timeStr) => {
   const parts = dateStr.split('-');
@@ -21,7 +35,10 @@ const parseDateTime = (dateStr, timeStr) => {
   if (period === 'AM' && hours === 12) hours = 0;
   if (period === 'PM' && hours !== 12) hours += 12;
 
-  const date = new Date(year, month, day, hours, minutes);
+  // Build ISO string with Sri Lanka offset (+05:30)
+  const pad = (n) => String(n).padStart(2, '0');
+  const isoString = `${year}-${pad(month + 1)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00+05:30`;
+  const date = new Date(isoString);
   if (isNaN(date.getTime())) return null;
   return date;
 };
@@ -48,9 +65,9 @@ const createMessage = async (req, res) => {
     res.status(201).json({
       id: newMessage._id,
       message: newMessage.message,
-      scheduledAt: newMessage.scheduledAt,
+      scheduledAt: toSriLankaTime(newMessage.scheduledAt),
       status: newMessage.status,
-      createdAt: newMessage.createdAt
+      createdAt: toSriLankaTime(newMessage.createdAt)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -60,7 +77,14 @@ const createMessage = async (req, res) => {
 const getMessages = async (req, res) => {
   try {
     const messages = await Message.find().sort({ scheduledAt: -1 });
-    res.status(200).json(messages);
+    const formatted = messages.map((msg) => ({
+      id: msg._id,
+      message: msg.message,
+      scheduledAt: toSriLankaTime(msg.scheduledAt),
+      status: msg.status,
+      createdAt: toSriLankaTime(msg.createdAt)
+    }));
+    res.status(200).json(formatted);
   }
   catch (err) {
     res.status(500).json({ error: err.message });
